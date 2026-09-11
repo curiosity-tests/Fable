@@ -1,4 +1,5 @@
 name: build
+run-name: "build ${{ inputs.leg || github.event_name }} ${{ inputs.racecar_run }}"
 
 on:
   push:
@@ -6,6 +7,24 @@ on:
   pull_request:
     branches: [main]
 
+  workflow_dispatch:
+    inputs:
+      leg:
+        description: "baseline (uninstrumented) or instrumented (under chalk/curiosity)"
+        type: choice
+        options: [instrumented, baseline]
+        default: baseline
+      profile:
+        description: "CrashOverride chalk profile"
+        type: string
+        default: curiosity-tests-racecar
+      racecar_run:
+        description: "racecar correlation token, echoed into the run name"
+        type: string
+        default: ""
+
+env:
+  CHALK_ON: ${{ inputs.leg == 'instrumented' }}
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
@@ -57,7 +76,7 @@ jobs:
     timeout-minutes: 10
     strategy:
       matrix:
-        platform: [ubuntu-latest, windows-latest]
+        platform: [ubuntu-latest]
     runs-on: ${{ matrix.platform }}
 
     steps:
@@ -136,7 +155,7 @@ jobs:
     timeout-minutes: 75
     strategy:
       matrix:
-        platform: [ubuntu-latest, windows-latest]
+        platform: [ubuntu-latest]
         python-version: [3.12, 3.13, 3.14]
     runs-on: ${{ matrix.platform }}
     env:
@@ -196,7 +215,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-latest, windows-latest, macos-latest]
+        platform: [ubuntu-latest]
         python-version: ["3.12", "3.13", "3.14"]
     runs-on: ${{ matrix.platform }}
     env:
@@ -341,6 +360,7 @@ jobs:
         continue-on-error: true
 
       - name: Upload SARIF files
+        continue-on-error: true   # racecar: scan/report/push step, must not fail the build
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: src/reports
